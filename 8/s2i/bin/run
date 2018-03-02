@@ -9,7 +9,7 @@
 
 set -e
 
-if [ -e "/opt/app-root/etc/generate_container_user" ]; then
+if [ ! -f "/etc/alpine-release" ] && [ -e "/opt/app-root/etc/generate_container_user" ]; then
   source /opt/app-root/etc/generate_container_user
 fi
 
@@ -53,8 +53,7 @@ if [ -d "/usr/src/app" ]; then
 fi
 
 # Allow users to inspect/debug the builder image itself, by using:
-# $ docker run -i -t openshift/centos-nodejs-builder --debug
-#
+# $ docker run -i -t <APP-NAME> --debug
 [ "$1" == "--debug" ] && exec /bin/bash
 
 run_node
