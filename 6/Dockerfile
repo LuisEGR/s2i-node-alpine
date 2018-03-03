@@ -1,5 +1,4 @@
-# Base alpine image with node.js
-FROM node:boron-alpine
+FROM centos/s2i-base-centos7
 
 # This image provides a Node.JS environment you can use to run your Node.JS
 # applications.
@@ -13,23 +12,15 @@ EXPOSE 8080
 # file for possible values of NPM_RUN
 # Description
 # Environment:
-# * $NPM_RUN - Select an alternate / custom runtime mode, defined in your
-#   package.json files' scripts section (default: npm run "start").
+# * $NPM_RUN - Select an alternate / custom runtime mode, defined in your package.json files' scripts section (default: npm run "start").
 # Expose ports:
 # * 8080 - Unprivileged port used by nodejs application
 
-ENV \
-    # Path to be used in other layers to place S2I scripts into
-    STI_SCRIPTS_PATH=/usr/libexec/s2i \
-    NODEJS_VERSION=8 \
+ENV NODEJS_VERSION=6 \
     NPM_RUN=start \
-    #NPM_CONFIG_LOGLEVEL=info \
-    # The $HOME is not set by default, but some applications needs this variable
-    HOME=/opt/app-root \
-    PATH=$HOME/bin:$HOME/src/bin:$HOME/node_modules/.bin/:$HOME/.npm-global/bin/:$PATH \
-    DEBUG_PORT=5858 \
-    NODE_ENV=production \
-    DEV_MODE=false
+    NAME=nodejs \
+    NPM_CONFIG_PREFIX=$HOME/.npm-global \
+    PATH=$HOME/node_modules/.bin/:$HOME/.npm-global/bin/:$PATH
 
 ENV SUMMARY="Platform for building and running Node.js $NODEJS_VERSION applications" \
     DESCRIPTION="Node.js $NODEJS_VERSION available as docker container is a base platform for \
@@ -44,59 +35,38 @@ LABEL summary="$SUMMARY" \
       io.k8s.description="$DESCRIPTION" \
       io.k8s.display-name="Node.js $NODEJS_VERSION" \
       io.openshift.expose-services="8080:http" \
-      io.openshift.tags="builder,nodejs,node$NODEJS_VERSION" \
-      io.openshift.s2i.scripts-url="image://$STI_SCRIPTS_PATH" \
-      io.s2i.scripts-url="image://$STI_SCRIPTS_PATH" \
+      io.openshift.tags="builder,$NAME,$NAME$NODEJS_VERSION" \
+      io.openshift.s2i.scripts-url="image:///usr/libexec/s2i" \
+      io.s2i.scripts-url="image:///usr/libexec/s2i" \
       com.redhat.dev-mode="DEV_MODE:false" \
-      com.redhat.deployments-dir="/opt/app-root/src" \
-      com.redhat.dev-mode.port="DEBUG_PORT:5858" \
-      com.redhat.component="alpine-node$NODEJS_VERSION-docker" \
-      name="s2i-node-alpine" \
+      com.redhat.deployments-dir="${APP_ROOT}/src" \
+      com.redhat.dev-mode.port="DEBUG_PORT:5858"\
+      com.redhat.component="rh-$NAME$NODEJS_VERSION-docker" \
+      name="centos/$NAME-$NODEJS_VERSION-centos7" \
       version="$NODEJS_VERSION" \
       maintainer="SoftwareCollections.org <sclorg@redhat.com>" \
       help="For more information visit https://github.com/sclorg/s2i-nodejs-container" \
-      usage="s2i build <SOURCE-REPOSITORY> s2i-node-alpine:$NODEJS_VERSION <APP-NAME>"
+      usage="s2i build <SOURCE-REPOSITORY> centos/$NAME-$NODEJS_VERSION-centos7:latest <APP-NAME>"
 
-# This is the list of basic dependencies that all language Docker image can consume.
-RUN apk update && \
-    apk add findutils \
-        gettext \
-        bash \
-        python \
-        make \
-        gcc \
-        clang \
-        g++ \
-        linux-headers \
-        binutils-gold \
-        libstdc++ && \
-    rm -rf /var/cache/apk/* && \
-    mkdir /opt/app-root && \
-    npm install nodemon
+RUN yum install -y centos-release-scl-rh && \
+    yum-config-manager --enable centos-sclo-rh-testing && \
+    INSTALL_PKGS="rh-nodejs6 rh-nodejs6-npm rh-nodejs6-nodejs-nodemon nss_wrapper" && \
+    ln -s /usr/lib/node_modules/nodemon/bin/nodemon.js /usr/bin/nodemon && \
+    yum install -y --setopt=tsflags=nodocs $INSTALL_PKGS && \
+    rpm -V $INSTALL_PKGS && \
+    yum clean all -y
 
 # Copy the S2I scripts from the specific language image to $STI_SCRIPTS_PATH
 COPY ./s2i/bin/ $STI_SCRIPTS_PATH
 
-# Copy extra files to the image.
+# Copy extra files to the image, including help file
 COPY ./root/ /
 
-# When bash is started non-interactively, to run a shell script, for example it
-# looks for this variable and source the content of this file. This will enable
-# the SCL for all scripts without need to do 'scl enable'.
-ENV BASH_ENV=/opt/app-root/etc/scl_enable \
-    ENV=/opt/app-root/etc/scl_enable \
-    PROMPT_COMMAND=". /opt/app-root/etc/scl_enable"
-
 # Drop the root user and make the content of /opt/app-root owned by user 1001
-RUN adduser -u 1001 -S -G root -h ${HOME} -s /sbin/nologin default && \
-    chown -R 1001:0 /opt/app-root
+RUN chown -R 1001:0 ${APP_ROOT} && chmod -R ug+rwx ${APP_ROOT} && \
+    rpm-file-permissions
 
-# This default user is created in the alpine image
 USER 1001
-
-# Directory with the sources is set as the working directory so all STI scripts
-# can execute relative to this path.
-WORKDIR ${HOME}
 
 # Set the default CMD to print the usage of the language image
 CMD $STI_SCRIPTS_PATH/usage
