@@ -58,7 +58,8 @@ LABEL summary="$SUMMARY" \
       usage="s2i build <SOURCE-REPOSITORY> s2i-node-alpine:$NODEJS_VERSION <APP-NAME>"
 
 # This is the list of basic dependencies that all language Docker image can consume.
-RUN apk update && \
+RUN mkdir /opt/app-root && \
+    apk update && \
     apk add findutils \
         gettext \
         bash \
@@ -71,7 +72,6 @@ RUN apk update && \
         binutils-gold \
         libstdc++ && \
     rm -rf /var/cache/apk/* && \
-    mkdir /opt/app-root && \
     npm install nodemon
 
 # Copy the S2I scripts from the specific language image to $STI_SCRIPTS_PATH
@@ -88,7 +88,7 @@ ENV BASH_ENV=/opt/app-root/etc/scl_enable \
     PROMPT_COMMAND=". /opt/app-root/etc/scl_enable"
 
 # Drop the root user and make the content of /opt/app-root owned by user 1001
-RUN adduser -u 1001 -S -G root -h ${HOME} -s /sbin/nologin default && \
+RUN adduser -u 1001 -g 0 -D -h ${HOME} -s /sbin/nologin default && \
     chown -R 1001:0 /opt/app-root
 
 # This default user is created in the alpine image

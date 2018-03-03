@@ -72,7 +72,7 @@
         },
         "from": {
           "kind": "DockerImage",
-          "name": "docker.io/eduardomourar/s2i-node-alpine:latest"
+          "name": "docker.io/eduardomourar/s2i-node-alpine:8"
         }
       }
     ]
