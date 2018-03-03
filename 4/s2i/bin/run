@@ -9,7 +9,7 @@
 
 set -e
 
-if [ -e "/opt/app-root/etc/generate_container_user" ]; then
+if [ ! -f "/etc/alpine-release" ] && [ -e "/opt/app-root/etc/generate_container_user" ]; then
   source /opt/app-root/etc/generate_container_user
 fi
 
