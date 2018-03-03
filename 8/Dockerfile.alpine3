@@ -23,10 +23,12 @@ ENV \
     STI_SCRIPTS_PATH=/usr/libexec/s2i \
     NODEJS_VERSION=8 \
     NPM_RUN=start \
-    #NPM_CONFIG_LOGLEVEL=info \
+    APP_ROOT=/opt/app-root \
     # The $HOME is not set by default, but some applications needs this variable
-    HOME=/opt/app-root \
-    PATH=$HOME/bin:$HOME/src/bin:$HOME/node_modules/.bin/:$HOME/.npm-global/bin/:$PATH \
+    HOME=/opt/app-root/src \
+    # NPM_CONFIG_LOGLEVEL=info \
+    NPM_CONFIG_PREFIX=$HOME/.npm-global \
+    PATH=$APP_ROOT/bin:$HOME/bin:$HOME/node_modules/.bin/:$HOME/.npm-global/bin/:$PATH \
     DEBUG_PORT=5858 \
     NODE_ENV=production \
     DEV_MODE=false
@@ -48,7 +50,7 @@ LABEL summary="$SUMMARY" \
       io.openshift.s2i.scripts-url="image://$STI_SCRIPTS_PATH" \
       io.s2i.scripts-url="image://$STI_SCRIPTS_PATH" \
       com.redhat.dev-mode="DEV_MODE:false" \
-      com.redhat.deployments-dir="/opt/app-root/src" \
+      com.redhat.deployments-dir="$HOME" \
       com.redhat.dev-mode.port="DEBUG_PORT:5858" \
       com.redhat.component="alpine-node$NODEJS_VERSION-docker" \
       name="s2i-node-alpine" \
@@ -58,7 +60,12 @@ LABEL summary="$SUMMARY" \
       usage="s2i build <SOURCE-REPOSITORY> s2i-node-alpine:$NODEJS_VERSION <APP-NAME>"
 
 # This is the list of basic dependencies that all language Docker image can consume.
-RUN mkdir /opt/app-root && \
+RUN mkdir /src && \
+    mkdir /opt/usr && \
+    mkdir -p $APP_ROOT && \
+    mkdir -p $HOME && \
+    mkdir -p $HOME/.npm-global && \
+    mkdir -p $STI_SCRIPTS_PATH && \
     apk update && \
     apk add findutils \
         gettext \
@@ -72,7 +79,7 @@ RUN mkdir /opt/app-root && \
         binutils-gold \
         libstdc++ && \
     rm -rf /var/cache/apk/* && \
-    npm install nodemon
+    npm install -g nodemon
 
 # Copy the S2I scripts from the specific language image to $STI_SCRIPTS_PATH
 COPY ./s2i/bin/ $STI_SCRIPTS_PATH
@@ -83,13 +90,15 @@ COPY ./root/ /
 # When bash is started non-interactively, to run a shell script, for example it
 # looks for this variable and source the content of this file. This will enable
 # the SCL for all scripts without need to do 'scl enable'.
-ENV BASH_ENV=/opt/app-root/etc/scl_enable \
-    ENV=/opt/app-root/etc/scl_enable \
-    PROMPT_COMMAND=". /opt/app-root/etc/scl_enable"
+ENV BASH_ENV=$APP_ROOT/etc/scl_enable \
+    ENV=$APP_ROOT/etc/scl_enable \
+    PROMPT_COMMAND=". $APP_ROOT/etc/scl_enable"
 
 # Drop the root user and make the content of /opt/app-root owned by user 1001
-RUN adduser -u 1001 -g 0 -D -h ${HOME} -s /sbin/nologin default && \
-    chown -R 1001:0 /opt/app-root
+RUN adduser -u 1001 -S -G root -h ${HOME} -s /sbin/nologin default && \
+    chown -R 1001:0 $APP_ROOT && \
+    chown -R 1001:0 /opt/usr && \
+    chown -R 1001:0 /src
 
 # This default user is created in the alpine image
 USER 1001

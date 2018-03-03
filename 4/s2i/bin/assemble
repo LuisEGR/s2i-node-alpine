@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Prevent running assemble in builders different than official STI image.
-# The official nodejs:4-onbuild already run npm install and use different
+# The official onbuild image already run npm install and use different
 # application folder.
 [ -d "/usr/src/app" ] && exit 0
 
@@ -51,12 +51,27 @@ if [ ! -z $https_proxy ]; then
 fi
 
 if [ -n "$NPM_MIRROR" ]; then
-  echo "---> Changing the npm registry mirror"
+  echo "---> Setting the npm package mirror to $NPM_MIRROR"
 	npm config set registry $NPM_MIRROR
 fi
 
+if [ "$(ls /tmp/artifacts/ 2>/dev/null)" ]; then
+  echo "---> Restoring build artifacts..."
+  mv /tmp/artifacts/* ./
+fi
+
 echo "---> Building your Node application from source"
-npm install
+
+if [ ! -z "$YARN_ENABLED" ]; then
+	echo "---> Using 'yarn install' with YARN_ARGS"
+	yarn install $YARN_ARGS
+else
+	echo "---> Using 'npm install'"
+	npm install -s
+fi
+
+echo "---> Deleting unnecessary things from NPM"
+find /usr/local/lib/node_modules/npm -name test -o -name .bin -type d | xargs rm -rf
 
 echo "---> Fixing source directory permissions"
 fix-permissions ./

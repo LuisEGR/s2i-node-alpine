@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 
 # Allow this script to fail without failing a build
 set +e
