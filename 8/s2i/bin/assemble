@@ -73,5 +73,5 @@ fi
 echo "---> Deleting unnecessary things from NPM"
 find /usr/local/lib/node_modules/npm -name test -o -name .bin -type d | xargs rm -rf
 
-echo "---> Fixing source directory permissions"
-fix-permissions ./
+# echo "---> Fixing source directory permissions"
+# fix-permissions ./
